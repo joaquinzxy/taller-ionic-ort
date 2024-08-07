@@ -123,12 +123,26 @@ const deleteEvent = (eventId) => {
         });
 }
 
-const signup = (user, password, departmentId, cityId) => {
-
+const login = (user, password) => {
+    // TODO YASY
+    console.log(user, password);
 }
 
-const login = () => {
+const signup = (user, password, departmentId, cityId) => {
+// TODO YASY
+}
 
+const getDepartments = () => {
+// TODO YASY
+}
+
+const getCities = (departmentId) => {
+// TODO YASY
+}
+
+const getSession = () => {
+    // DEBE BUSCAR EN LOCAL STORAGE SI EXISTE INFO DEL USUARIO
+    localStorage.getItem('user');
 }
 
 const SCREENS = {
@@ -164,3 +178,4 @@ const navigate = (evt) => {
 }
 
 eventSuscriptions();
+getSession()
