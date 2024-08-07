@@ -39,6 +39,14 @@ const API_DOC = {
     }
 }
 
+const MENU = document.querySelector("#menu");
+const ROUTER = document.querySelector("#ruteo");
+const NAV = document.querySelector("#nav");
+
+const eventSuscriptions = () => {
+    ROUTER.addEventListener("ionRouteDidChange", navigate);
+}
+
 const formatError = (error) => {
     return {
         status: error.codigo,
@@ -138,8 +146,21 @@ const hideScreens = () => {
 }
 
 const showScreen = (screenid) => {
+    screenid = screenid.replace('/', '');
     if(SCREENS[screenid.toLocaleUpperCase()]){
         hideScreens();
         SCREENS[screenid.toLocaleUpperCase()].style.display = 'block'
     }
 } 
+
+const closeMenu = () => {
+    MENU.close();
+}
+
+const navigate = (evt) => {
+    const target = evt.detail.to === '/' ? 'home' : evt.detail.to;
+    hideScreens();
+    showScreen(target);
+}
+
+eventSuscriptions();
