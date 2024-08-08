@@ -124,25 +124,157 @@ const deleteEvent = (eventId) => {
 }
 
 const login = (user, password) => {
-    // TODO YASY
+    try {
+        const datos = {
+            "nombre" : user,
+            "password" : password,
+        };
+    
+        fetch(API_DOC.login, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Usuario no encontrado');
+                }
+                return response.json();
+            })
+            .then(user => {
+                console.log('Usuario encontrado:', user);
+            })
+            .catch(error => {
+                console.error('Error:', error.message);
+            });
+        
+    } catch (error) {
+        console.log(error);
+    }
+
     console.log(user, password);
 }
 
 const signup = (user, password, departmentId, cityId) => {
-// TODO YASY
+
+    try {
+        const datos = {
+            "nombre" : user,
+            "password" : password,
+            "departamento" : departmentId,
+            "ciudad" : cityId
+        };
+    
+        fetch(API_DOC.signup, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Error al registrarse',response.status);
+                }
+                return response.json();
+            })
+            .then(user => {
+                console.log('Usuario registrado:', user);
+            })
+            .catch(error => {
+                console.error('Error:', error.message);
+            });
+        
+    } catch (error) {
+        console.log(error);
+    }
+
+    console.log(user, password, departmentId, cityId);
 }
+
 
 const getDepartments = () => {
-// TODO YASY
-}
 
-const getCities = (departmentId) => {
-// TODO YASY
+    try {
+        const datos = {
+            "departamento" : departmentId
+        };
+    
+        fetch(API_DOC.getDepartments, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Departamento no encontrado');
+                }
+                return response.json();
+            })
+            .then(user => {
+                console.log('Departamento encontrado:', departmentId);
+            })
+            .catch(error => {
+                console.error('Error:', error.message);
+            });
+        
+    } catch (error) {
+        console.log(error);
+    }
+
+    console.log(departmentId);
+
+}
+const getCities = (cityId) => {
+
+    try {
+        const datos = {
+            "departamento" : cityId
+        };
+    
+        fetch(API_DOC.getCities, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Ciudad no encontrada');
+                }
+                return response.json();
+            })
+            .then(user => {
+                console.log('Ciudad encontrada:', cityId);
+            })
+            .catch(error => {
+                console.error('Error:', error.message);
+            });
+        
+    } catch (error) {
+        console.log(error);
+    }
+
+    console.log(cityId);
+
 }
 
 const getSession = () => {
-    // DEBE BUSCAR EN LOCAL STORAGE SI EXISTE INFO DEL USUARIO
     localStorage.getItem('user');
+    if (user) {
+        try {
+            return JSON.parse("user")
+        } catch (error) {
+            console.error;
+            return null;
+        }
+    }
+    return null;
 }
 
 const SCREENS = {
@@ -178,4 +310,4 @@ const navigate = (evt) => {
 }
 
 eventSuscriptions();
-getSession()
+getSession();
