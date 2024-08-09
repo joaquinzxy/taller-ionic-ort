@@ -43,8 +43,16 @@ const MENU = document.querySelector("#menu");
 const ROUTER = document.querySelector("#ruteo");
 const NAV = document.querySelector("#nav");
 
+let dataDepartments = undefined;
+let dataCities = undefined;
+
+const BUTTONS = {
+    login: document.querySelector("#btn-login"),
+}
+
 const eventSuscriptions = () => {
     ROUTER.addEventListener("ionRouteDidChange", navigate);
+    BUTTONS.login.addEventListener("click", handleLogin)
 }
 
 const formatError = (error) => {
@@ -54,10 +62,7 @@ const formatError = (error) => {
     }
 }
 
-const user = {
-    apiKey: 'c15838f4dec3e840d8d6e23122173361',
-    id: 3644
-}
+let loggedUser = undefined
 
 const getHeader = () => {
     return {
@@ -123,33 +128,41 @@ const deleteEvent = (eventId) => {
         });
 }
 
+const handleLogin = () => {
+    const user = document.querySelector('#txtLoginEmail').value
+    const password = document.querySelector('#txtLoginPassword').value
+    login(user, password)
+}
+
 const login = (user, password) => {
     try {
-        const datos = {
-            "nombre" : user,
-            "password" : password,
+        const data = {
+            "usuario": user,
+            "password": password,
         };
-    
-        fetch(API_DOC.login, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(data)
-            })
+
+        fetch(API_DOC.login.url, {
+            method: API_DOC.login.method,
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(data)
+        })
             .then(response => {
                 if (!response.ok) {
-                    throw new Error('Usuario no encontrado');
+                    throw new Error('Credenciales incorrectas');
                 }
                 return response.json();
             })
-            .then(user => {
-                console.log('Usuario encontrado:', user);
+            .then(data => {
+                loggedUser = data;
+                localStorage.setItem("user", JSON.stringify(data));
+                showScreen('home')
             })
             .catch(error => {
                 console.error('Error:', error.message);
             });
-        
+
     } catch (error) {
         console.log(error);
     }
@@ -160,23 +173,23 @@ const login = (user, password) => {
 const signup = (user, password, departmentId, cityId) => {
 
     try {
-        const datos = {
-            "nombre" : user,
-            "password" : password,
-            "departamento" : departmentId,
-            "ciudad" : cityId
+        const data = {
+            "usuario": user,
+            "password": password,
+            "departamento": departmentId,
+            "ciudad": cityId
         };
-    
-        fetch(API_DOC.signup, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(data)
-            })
+
+        fetch(API_DOC.signup.url, {
+            method: API_DOC.signup.method,
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(data)
+        })
             .then(response => {
                 if (!response.ok) {
-                    throw new Error('Error al registrarse',response.status);
+                    throw new Error('Error al registrarse', response.status);
                 }
                 return response.json();
             })
@@ -186,7 +199,7 @@ const signup = (user, password, departmentId, cityId) => {
             .catch(error => {
                 console.error('Error:', error.message);
             });
-        
+
     } catch (error) {
         console.log(error);
     }
@@ -194,87 +207,94 @@ const signup = (user, password, departmentId, cityId) => {
     console.log(user, password, departmentId, cityId);
 }
 
+const showDepartments = () => {
+    if (!dataDepartments) {
+        getDepartments()
+    } else {
+        const departmentSelect = document.querySelector('#slcDepartment')
+        let departmentsOptions = ''
+        for (const department of dataDepartments) {
+            departmentsOptions += `<ion-select-option value="${department.id}">${department.nombre}</ion-select-option>`
+        }
+        departmentSelect.innerHTML = departmentsOptions;
+        departmentSelect.setAttribute('disabled', false)
+        departmentSelect.addEventListener('ionChange', (event) => {
+            dataCities = undefined;
+            getCities(event.detail.value)
+        })
+    }
+}
 
 const getDepartments = () => {
-
     try {
-        const datos = {
-            "departamento" : departmentId
-        };
-    
-        fetch(API_DOC.getDepartments, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(data)
-            })
+        fetch(API_DOC.getDepartments.url, {
+            method: API_DOC.getDepartments.method,
+            headers: {
+                "Content-Type": "application/json"
+            }
+        })
             .then(response => {
                 if (!response.ok) {
                     throw new Error('Departamento no encontrado');
                 }
                 return response.json();
             })
-            .then(user => {
-                console.log('Departamento encontrado:', departmentId);
+            .then(data => {
+                dataDepartments = data.departamentos
+                showDepartments();
             })
             .catch(error => {
                 console.error('Error:', error.message);
             });
-        
     } catch (error) {
         console.log(error);
     }
-
-    console.log(departmentId);
-
 }
-const getCities = (cityId) => {
 
+const getCities = (cityId) => {
     try {
-        const datos = {
-            "departamento" : cityId
-        };
-    
-        fetch(API_DOC.getCities, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(data)
-            })
+        fetch(API_DOC.getCities.url + cityId, {
+            method: API_DOC.getCities.method,
+            headers: {
+                "Content-Type": "application/json"
+            },
+        })
             .then(response => {
                 if (!response.ok) {
                     throw new Error('Ciudad no encontrada');
                 }
                 return response.json();
             })
-            .then(user => {
-                console.log('Ciudad encontrada:', cityId);
+            .then(cities => {
+                dataCities = cities.ciudades;
+                showCities()
             })
             .catch(error => {
                 console.error('Error:', error.message);
             });
-        
     } catch (error) {
         console.log(error);
     }
-
-    console.log(cityId);
-
 }
 
-const getSession = () => {
-    localStorage.getItem('user');
-    if (user) {
-        try {
-            return JSON.parse("user")
-        } catch (error) {
-            console.error;
-            return null;
-        }
+const showCities = () => {
+    const slcCities = document.querySelector('#slcCity')
+    let citiesOptions = ''
+    for (const city of dataCities) {
+        citiesOptions += `<ion-select-option value="${city.id}">${city.nombre}</ion-select-option>`
     }
-    return null;
+    slcCities.innerHTML = citiesOptions;
+    slcCities.setAttribute('disabled', false)
+}
+
+
+
+const getSession = () => {
+    const user = localStorage.getItem('user');
+    if (user) {
+        loggedUser = JSON.parse(user)
+        showScreen('home')
+    }
 }
 
 const SCREENS = {
@@ -293,11 +313,19 @@ const hideScreens = () => {
 
 const showScreen = (screenid) => {
     screenid = screenid.replace('/', '');
-    if(SCREENS[screenid.toLocaleUpperCase()]){
+    if (SCREENS[screenid.toLocaleUpperCase()]) {
         hideScreens();
         SCREENS[screenid.toLocaleUpperCase()].style.display = 'block'
+        switch (screenid) {
+            case 'signup':
+                showDepartments()
+                break;
+
+            default:
+                break;
+        }
     }
-} 
+}
 
 const closeMenu = () => {
     MENU.close();
