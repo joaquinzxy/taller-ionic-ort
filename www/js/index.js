@@ -43,16 +43,23 @@ const MENU = document.querySelector("#menu");
 const ROUTER = document.querySelector("#ruteo");
 const NAV = document.querySelector("#nav");
 
+const listEventsTodayIon = document.querySelector("#list-events-today");
+const listEventsPastIon = document.querySelector("#list-events-past");
+
 let dataDepartments = undefined;
 let dataCities = undefined;
+let dataEvents = undefined;
+let dataCategories = undefined;
 
 const BUTTONS = {
     login: document.querySelector("#btn-login"),
+    addEvent: document.querySelector("#btn-add-event"),
 }
 
 const eventSuscriptions = () => {
     ROUTER.addEventListener("ionRouteDidChange", navigate);
-    BUTTONS.login.addEventListener("click", handleLogin)
+    BUTTONS.login.addEventListener("click", handleLogin);
+    document.querySelector('#slcCategory').addEventListener('ionChange', onChangeEventCategory);
 }
 
 const formatError = (error) => {
@@ -67,54 +74,76 @@ let loggedUser = undefined
 const getHeader = () => {
     return {
         'Content-Type': 'application/json',
-        'apikey': user.apiKey,
-        'iduser': user.id
+        'apikey': loggedUser?.apiKey,
+        'iduser': loggedUser?.id
     }
 }
 
 const addEvent = (category, detail, datetime) => {
     try {
-
-        if (!category || !detail) {
-            throw {
-                code: 500,
-                message: 'Se necesita definir categoría y detalle'
-            }
-        }
-
-        fetch(API_DOC.addEvent.url, {
-            method: API_DOC.addEvent.method,
-            headers: getHeader(),
-            body: JSON.stringify({
-                idCategoria: category,
-                idUsuario: user.id,
-                detalle: detail,
-                fecha: datetime || ""
+        if(!category || !datetime){
+            showToast({
+                title: 'Error al agregar evento',
+                message: 'Por favor, selecciona una categoría y una fecha',
+                type: 'error'
             })
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.codigo !== 200) {
-                    throw formatError(data);
-                }
-                console.log(data);
-            }).catch(error => {
-                console.log('Error:', error);
-                throw error;
-            });
+        } else {
+            fetch(API_DOC.addEvent.url, {
+                method: API_DOC.addEvent.method,
+                headers: getHeader(),
+                body: JSON.stringify({
+                    idCategoria: category,
+                    idUsuario: loggedUser.id,
+                    detalle: detail,
+                    fecha: datetime || ""
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.codigo !== 200) {
+                        showToast({ title: 'Error al agregar evento', message: data.mensaje, type: 'error' })
+                    } else {
+                        dataEvents = undefined;
+                        getEvents();
+                    }
+                }).catch(error => {
+                    showToast({ title: 'Error al agregar evento', message: error.message, type: 'error' })
+                });
+        }
     } catch (error) {
         console.log({ error });
     }
 }
 
 const getEvents = () => {
-    fetch(API_DOC.getEvents.url + user.id, {
-        headers: getHeader()
-    })
+
+    listEventsTodayIon.innerHTML = `
+        <ion-item class="spinner-load" lines="none">
+            <ion-spinner color="primary" name="circular"></ion-spinner>
+        </ion-item>`;
+
+    listEventsPastIon.innerHTML = ``;
+
+    try{
+        fetch(API_DOC.getEvents.url + loggedUser.id, {
+            headers: getHeader()
+        })
         .then(response => response.json())
         .then(data => {
-            console.log(data);
+            if (data.codigo !== 200) {
+                showAlert({
+                    title: 'Error',
+                    message: data.mensaje,
+                    buttons: ['Aceptar']
+                })
+            } else {
+                dataEvents = data.eventos;
+                showEvents();
+            }
         });
+    } catch (error) {
+        showToast({ title: 'Error al obtener eventos', message: error.message, type: 'error' })
+    }
 }
 
 const deleteEvent = (eventId) => {
@@ -124,7 +153,13 @@ const deleteEvent = (eventId) => {
     })
         .then(response => response.json())
         .then(data => {
-            console.log(data);
+            if (data.codigo !== 200) {
+                showToast({title: 'Error al eliminar evento',message: data.mensaje,type: 'error' })
+            } else {
+                showToast({ title: 'Evento eliminado', message: 'El evento ha sido eliminado correctamente', type: 'success' })
+                dataEvents = undefined;
+                getEvents();
+            }
         });
 }
 
@@ -157,6 +192,7 @@ const login = (user, password) => {
             .then(data => {
                 loggedUser = data;
                 localStorage.setItem("user", JSON.stringify(data));
+                showMenuByUser(loggedUser);
                 showScreen('home')
             })
             .catch(error => {
@@ -287,7 +323,206 @@ const showCities = () => {
     slcCities.setAttribute('disabled', false)
 }
 
+const showEvents = () => {
+    if (!dataEvents) {
+        getEvents()
+    } else {
+        if (dataEvents.length === 0) {
+            listEventsTodayIon.innerHTML = '<ion-item>Ningún evento registrado</ion-item>'
+        } else {
 
+            const events = processEvents();
+
+            let todayEventContent = `<ion-list-header> <ion-label><h2><strong>Eventos de hoy</strong></h2></ion-label> </ion-list-header>`
+            let pastEventContent = `<ion-list-header> <ion-label><h2><strong>Eventos pasados</strong></h2></ion-label> </ion-list-header>`
+            for (const event of events) {
+                const eventTime = event.fecha.split(' ')[1].split(':')
+                const eventDate = event.fecha.split(' ')[0].split('-').reverse()
+                eventDate[2] = eventDate[2].slice(2, 4)
+
+                const eventContent = `
+                <ion-item> 
+                    <ion-grid>
+                        <ion-row>
+                            <ion-col size="1">
+                                <ion-img src="https://babytracker.develotion.com/imgs/${getCategoryImageId(event.idCategoria)}.png"></ion-img>
+                            </ion-col>
+                            <ion-col size="9.5">
+                                <ion-row>
+                                    <p class="event-datetime">
+                                        <span>${eventTime[0]}:${eventTime[1]} ${event.moment === 'today' ? '' : ' - ' + eventDate.join('/')}</span> <span class="event-since">${getSinceTime(event.fecha)} atrás</span>
+                                    </p>
+                                </ion-row>
+                                <ion-row>
+                                    <ion-label><p class="event-detalle">${event.detalle || 'Sin detalle'}</p></ion-label>
+                                </ion-row>
+                            </ion-col>
+                            <ion-col size="1">
+                                <ion-button color="primary"  fill="clear"  shape="round" onclick="onDeleteEvent(${event.id})">
+                                    <ion-icon name="trash" color="danger" fill="clear"></ion-icon>
+                                </ion-button>
+                            </ion-col>
+                        </ion-row>
+                    </ion-grid>
+                </ion-item>`
+
+                if (event.moment === 'today') {
+                    todayEventContent += eventContent
+                } else {
+                    pastEventContent += eventContent
+                }
+            }
+            listEventsTodayIon.innerHTML = todayEventContent;
+            listEventsPastIon.innerHTML = pastEventContent;
+        }
+    }
+}
+
+const getSinceTime = (date) => {
+    const today = new Date();
+    const eventDate = new Date(date);
+    const diff = today - eventDate;
+    const diffSeconds = diff / 1000;
+    const diffMinutes = diffSeconds / 60;
+    const diffHours = diffMinutes / 60;
+    const diffDays = diffHours / 24;
+    const diffMonths = diffDays / 30;
+
+    if (diffMonths > 1) {
+        return `${Math.floor(diffMonths)} ${Math.floor(diffMonths) > 1 ? 'meses' : 'mes'}`
+    } else if (diffDays > 1) {
+        return `${Math.floor(diffDays)} ${Math.floor(diffDays) > 1 ? 'días' : 'día'}`
+    } else if (diffHours > 1) {
+        return `${Math.floor(diffHours)} ${Math.floor(diffHours) > 1 ? 'horas' : 'hora'}`
+    } else if (diffMinutes > 1) {
+        return `${Math.floor(diffMinutes)} ${Math.floor(diffMinutes) > 1 ? 'minutos' : 'minuto'}`
+    } else {
+        return `${Math.floor(diffSeconds)} ${Math.floor(diffSeconds) > 1 ? 'segundos' : 'segundo'}`
+    }
+}
+
+const processEvents = () => {
+
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    const sortedEventsByFecha = dataEvents.sort((a, b) => {
+        return new Date(b.fecha) - new Date(a.fecha)
+    })
+    const events = sortedEventsByFecha.map(event => {
+        return {
+            ...event,
+            moment: event.fecha.split(' ')[0] === todayStr ? 'today' : 'past'
+        }
+    });
+
+    return events
+}
+
+const onDeleteEvent = (eventId) => {
+    showAlert({
+        title: 'Eliminar evento',
+        message: '¿Estás seguro de eliminar el evento?',
+        buttons: [
+            {
+                text: 'Cancelar',
+                role: 'cancel',
+                cssClass: 'secondary'
+            },
+            {
+                text: 'Eliminar',
+                handler: () => {
+                    deleteEvent(eventId)
+                }
+            }
+        ]
+    })
+}
+
+const getCategoryImageId = (categoryId) => {
+    return dataCategories.find(category => category.id === categoryId).imagen
+}
+
+const getCategories = () => {
+    try {
+        fetch(API_DOC.getCategories.url, {
+            method: API_DOC.getCategories.method,
+            headers: getHeader()
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.codigo !== 200) {
+                    showAlert({
+                        title: 'Error al obtener las categorías',
+                        message: data.mensaje,
+                        buttons: ['Aceptar']
+                    })
+                } else {
+                    dataCategories = data.categorias
+                    showCategories();
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error.message);
+            });
+    } catch (error) {
+        console.log(error);
+    }
+}
+
+const showCategories = () => {
+    if (!dataCategories) {
+        getCategories()
+    } else {
+        const slcCategories = document.querySelector('#slcCategory')
+        let categoriesOptions = ''
+        for (const category of dataCategories) {
+            categoriesOptions += `<ion-select-option value="${category.id}">${category.tipo}</ion-select-option>`
+        }
+        slcCategories.innerHTML = categoriesOptions;
+        slcCategories.setAttribute('disabled', false)
+    }
+}
+
+const onOpenModalAddEvent = () => {
+    showCategories();
+
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
+    const seconds = date.getSeconds();
+
+    const dateStr = `${year}-${month < 10 ? '0' + month : month}-${day < 10 ? '0' + day : day}`;
+    const timeStr = `${hours < 10 ? '0' + hours : hours}:${minutes < 10 ? '0' + minutes : minutes}:${seconds < 10 ? '0' + seconds : seconds}`;
+
+    document.querySelector('#add-event-datetime').value = dateStr + 'T' + timeStr;
+    document.querySelector('#add-event-datetime').max = dateStr + 'T' + timeStr;
+}
+
+const onChangeEventCategory = (event) => {
+    const category = event.detail.value;
+    const btnConfirmEvent = document.querySelector('#btn-confirm-event');
+    if (category) {
+        btnConfirmEvent.removeAttribute('disabled');
+    } else {
+        btnConfirmEvent.setAttribute('disabled', true);
+    }
+}
+
+const onConfirmEvent = () => {
+    const category = document.querySelector('#slcCategory').value;
+    const detail = document.querySelector('#txtEventDetail').value;
+    const datetime = document.querySelector('#add-event-datetime').value;
+    addEvent(category, detail, datetime);
+    closeModalAddEvent();
+}
+
+const closeModalAddEvent = () => {
+    const modal = document.querySelector('#add-event-modal-ion');
+    return modal.dismiss();
+}
 
 const getSession = () => {
     const user = localStorage.getItem('user');
@@ -300,6 +535,8 @@ const getSession = () => {
 const SCREENS = {
     HOME: document.querySelector('#page-home'),
     EVENTS: document.querySelector('#page-events'),
+    DASHBOARD: document.querySelector('#page-dashboard'),
+    PLACES: document.querySelector('#page-places'),
     LOGIN: document.querySelector('#page-login'),
     SIGNUP: document.querySelector('#page-auth'),
 }
@@ -309,6 +546,8 @@ const hideScreens = () => {
     SCREENS.EVENTS.style.display = 'none'
     SCREENS.LOGIN.style.display = 'none'
     SCREENS.SIGNUP.style.display = 'none'
+    SCREENS.DASHBOARD.style.display = 'none'
+    SCREENS.PLACES.style.display = 'none'
 }
 
 const showScreen = (screenid) => {
@@ -320,7 +559,9 @@ const showScreen = (screenid) => {
             case 'signup':
                 showDepartments()
                 break;
-
+            case 'events':
+                showEvents()
+                break;
             default:
                 break;
         }
@@ -331,11 +572,84 @@ const closeMenu = () => {
     MENU.close();
 }
 
+const generateDashboardData = () => {
+    const events = processEvents();
+    const todayEvents = events.filter(event => event.moment === 'today');
+    const idDaipers = dataCategories.find(category => category.tipo === 'Pañal').id;
+    const idFeed = dataCategories.find(category => category.tipo === 'Biberón').id;
+
+    const daipers = todayEvents.filter(event => event.idCategoria === idDaipers);
+    const feed = todayEvents.filter(event => event.idCategoria === idFeed);
+
+    return {
+        daipers: {
+            total: daipers.length,
+            since: daipers.length > 0 ? getSinceTime(daipers[0].fecha) : 'Sin eventos',
+        },
+        feed: {
+            total: feed.length,
+            since: feed.length > 0 ? getSinceTime(feed[0].fecha) : 'Sin eventos',
+        }
+    }
+}
+
+const showMenuByUser = (loggedUser) => {
+    console.log(loggedUser);
+    
+    document.querySelector('#menu-options-guest').style.display = 'none';
+    document.querySelector('#menu-options-logued').style.display = 'none';
+    if(loggedUser){
+        document.querySelector('#menu-options-logued').style.display = 'block';
+    } else {
+        document.querySelector('#menu-options-guest').style.display = 'block';
+    }
+}
+
 const navigate = (evt) => {
     const target = evt.detail.to === '/' ? 'home' : evt.detail.to;
     hideScreens();
     showScreen(target);
 }
 
+const showToast = ({ title, message, type, duration }) => {
+    const toast = document.createElement('ion-toast');
+    toast.color = type === 'error' ? 'danger' : 'tertiary';
+    toast.message = message || '';
+    toast.header = title.toLocaleUpperCase() || '';
+    toast.duration = duration || 2000;
+
+    document.body.appendChild(toast);
+    toast.present();
+}
+
+const showAlert = ({ title, message, buttons }) => {
+    const alert = document.createElement('ion-alert');
+    alert.header = title;
+    alert.message = message;
+    alert.buttons = buttons;
+
+    document.body.appendChild(alert);
+    alert.present();
+}
+
+const cleanUpToastsAlerts = () => {
+    const toasts = document.querySelectorAll('ion-toast');
+    toasts.forEach(toast => {
+        if (document.body.contains(toast)) {
+            document.body.removeChild(toast);
+        }
+    });
+
+    const alerts = document.querySelectorAll('ion-alert');
+    alerts.forEach(alert => {
+        if (document.body.contains(alert)) {
+            document.body.removeChild(alert);
+        }
+    });
+}
+
 eventSuscriptions();
 getSession();
+getCategories();
+showMenuByUser(loggedUser);
+

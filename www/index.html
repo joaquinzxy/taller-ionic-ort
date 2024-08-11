@@ -7,6 +7,7 @@
     <script type="module" src="https://cdn.jsdelivr.net/npm/@ionic/core/dist/ionic/ionic.esm.js"></script>
     <script nomodule src="https://cdn.jsdelivr.net/npm/@ionic/core/dist/ionic/ionic.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@ionic/core/css/ionic.bundle.css" />
+    <link rel="stylesheet" href="./css/style.css" />
     <title>BabyTracker</title>
 </head>
 
@@ -15,6 +16,8 @@
         <ion-router id="ruteo" root="/">
             <ion-route url="/" component="page-home"></ion-route>
             <ion-route url="/events" component="page-events"></ion-route>
+            <ion-route url="/dashboard" component="page-dashboard"></ion-route>
+            <ion-route url="/places" component="page-places"></ion-route>
             <ion-route url="/login" component="page-login"></ion-route>
             <ion-route url="/signup" component="page-auth"></ion-route>
         </ion-router>
@@ -28,11 +31,14 @@
                 </ion-toolbar>
             </ion-header>
             <ion-content>
-                <ion-list>
-                    <ion-item href="/" onclick="closeMenu()" id="btnMenuSucursales">Inicio</ion-item>
-                    <ion-item href="/events" onclick="closeMenu()" id="btnMenuProductos">Events</ion-item>
-                    <ion-item href="/login" onclick="closeMenu()" id="btnMenuLogin">Login</ion-item>
-                    <ion-item href="/signup" onclick="closeMenu()" id="btnMenuRegistro">Signup</ion-item>
+                <ion-list id="menu-options-guest">
+                    <ion-item href="/login" onclick="closeMenu()" id="btnMenuLogin">Iniciar sesión</ion-item>
+                    <ion-item href="/signup" onclick="closeMenu()" id="btnMenuRegistro">Registrarme</ion-item>
+                </ion-list>
+                <ion-list id="menu-options-logued">
+                    <ion-item href="/events" onclick="closeMenu()" id="btnMenuProductos">Eventos</ion-item>
+                    <ion-item href="/dashboard" onclick="closeMenu()" id="btnMenuLogin">Informes</ion-item>
+                    <ion-item href="/places" onclick="closeMenu()" id="btnMenuRegistro">Plazas</ion-item>
                     <ion-item id="btnMenuCerrarSesion" onclick="closeMenu()">Cerrar sesión</ion-item>
                 </ion-list>
             </ion-content>
@@ -62,26 +68,71 @@
                     <ion-title>Eventos</ion-title>
                 </ion-toolbar>
             </ion-header>
-            <ion-content>
-                <ion-list>
-                    <ion-item>
-                        <ion-label>Pokémon Yellow</ion-label>
-                    </ion-item>
-                    <ion-item>
-                        <ion-label>Mega Man X</ion-label>
-                    </ion-item>
-                    <ion-item>
-                        <ion-label>The Legend of Zelda</ion-label>
-                    </ion-item>
-                    <ion-item>
-                        <ion-label>Pac-Man</ion-label>
-                    </ion-item>
-                    <ion-item>
-                        <ion-label>Super Mario World</ion-label>
-                    </ion-item>
+            <ion-content fullscreen="true" >
+                <ion-list id="list-events-today">
                 </ion-list>
+                <ion-list id="list-events-past">
+                </ion-list>
+                <ion-button id="btn-add-event" expand="block" color="secondary"  slot="fixed" onclick="onOpenModalAddEvent()">Agregar evento</ion-button>
+                <ion-modal trigger="btn-add-event" id="add-event-modal-ion">
+                    <ion-header>
+                        <ion-toolbar>
+                            <ion-title>Agregar evento</ion-title>
+                        </ion-toolbar>
+                    </ion-header>
+                    <ion-content class="ion-padding">
+                        <ion-item>
+                            <ion-input label="Detalle" id="txtEventDetail" label-placement="stacked" type="text"
+                                placeholder="Descripción del evento..."></ion-input>
+                        </ion-item>
+                        <ion-item class="justify-space-between"> 
+                            <ion-label>Categoría</ion-label>
+                            <ion-select id="slcCategory" placeholder="Sin definir" disabled interface="action-sheet" justify="end" cancel-text="Cancelar">
+                            </ion-select>
+                        </ion-item>
+                        <ion-item>
+                            <ion-label>Fecha/hora</ion-label>
+                            <ion-datetime-button datetime="add-event-datetime"></ion-datetime-button>
+                        </ion-item>
+
+                        <!-- add an 'Confirmar' and 'Cancelar' button -->
+
+                        <div class="btn-container-event">
+                            <ion-button id="btn-cancel-event" color="light" onclick="closeModalAddEvent()">Cancelar</ion-button>
+                            <ion-button id="btn-confirm-event" color="primary" onclick="onConfirmEvent()" disabled>Confirmar</ion-button>
+                        </div>
+                    </ion-content>
+                </ion-modal>
             </ion-content>
         </page-events>
+
+        <page-login class="ion-page" id="page-dashboard">
+            <ion-header>
+                <ion-toolbar color="primary">
+                    <ion-buttons slot="start">
+                        <ion-menu-button></ion-menu-button>
+                    </ion-buttons>
+                    <ion-title>Dashboard</ion-title>
+                </ion-toolbar>
+            </ion-header>
+            <ion-content>
+              
+            </ion-content>
+        </page-login>
+
+        <page-login class="ion-page" id="page-places">
+            <ion-header>
+                <ion-toolbar color="primary">
+                    <ion-buttons slot="start">
+                        <ion-menu-button></ion-menu-button>
+                    </ion-buttons>
+                    <ion-title>Plazas</ion-title>
+                </ion-toolbar>
+            </ion-header>
+            <ion-content>
+              
+            </ion-content>
+        </page-login>
 
         <page-login class="ion-page" id="page-login">
             <ion-header>
@@ -130,12 +181,13 @@
                     </ion-item>
                     <br>
                     <ion-item>
-                        <ion-select id="slcDepartment" label="Departamento" placeholder="" ionchange="showCities()" disabled>
+                        <ion-select id="slcDepartment" label="Departamento" placeholder="" ionchange="showCities()"
+                            disabled interface="action-sheet">
                         </ion-select>
                     </ion-item>
                     <br>
                     <ion-item>
-                        <ion-select id="slcCity" label="Ciudad" placeholder="" disabled>
+                        <ion-select id="slcCity" label="Ciudad" placeholder="" disabled  interface="action-sheet">
                         </ion-select>
                     </ion-item>
                 </ion-list>
@@ -144,7 +196,9 @@
                 <br><br>
             </ion-content>
         </page-auth>
-
+        <ion-modal>
+            <ion-datetime id="add-event-datetime"></ion-datetime>
+        </ion-modal>
     </ion-app>
     <script src="./js/index.js" defer></script>
 </body>
