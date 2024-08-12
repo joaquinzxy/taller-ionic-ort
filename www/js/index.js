@@ -48,11 +48,17 @@ const listEventsPastIon = document.querySelector("#list-events-past");
 const plazass = document.querySelector("#pantalla-plazas-combo-plazas");
 const pantallaPlazas = document.querySelector("#pantalla-plazas");
 
+let posicionUsuario = {
+    latitude: -34.903816878014354,
+    longitude: -56.19059048108193
+};
+
 
 let dataDepartments = undefined;
 let dataCities = undefined;
 let dataEvents = undefined;
 let dataCategories = undefined;
+let dataPlaces = undefined;
 let map = null;
 let loggedUser = undefined;
 
@@ -66,7 +72,6 @@ const eventSuscriptions = () => {
     BUTTONS.login.addEventListener("click", handleLogin);
     document.querySelector('#slcCategory').addEventListener('ionChange', onChangeEventCategory);
     document.querySelector("#btnMenuCerrarSesion").addEventListener("click",logOut); 
-    plazass.addEventListener("ionChange", comboplazasChangeHandler);
 }
 
 const formatError = (error) => {
@@ -75,8 +80,6 @@ const formatError = (error) => {
         message: error.mensaje,
     }
 }
-
-
 
 const getHeader = () => {
     return {
@@ -585,7 +588,7 @@ const showScreen = (screenid) => {
                 break;
 
             case 'places':
-                inicializarMapa();
+                initMap();
             
             default:
                     break;
@@ -687,80 +690,30 @@ function logOut() {
 }
 
 /* plazas */
-function cargarYListarPlazas(comboParaActualizar) {
+function getPlaces() {
     fetch(API_DOC.getPlaces.url, {
         method: API_DOC.getPlaces.method,
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify(data)
+        headers: getHeader(),
     })
     .then(response => {
-        console.log(response);
+        return response.json();
     })
     .then(data => {
-        if (data && data.error) {
-            console.log('Error', data.error);
-        } else if (data && data.data && data.data.length > 0) {
-            plazas = [];    
-            for (let i = 0; i < data.data.length; i++) {
-                const plazaActual = data.data[i];
-                plazas.push(Plaza.parse(plazaActual));
-            }
-            actualizarComboPlazas(comboParaActualizar);
-        } else {
+        if(data.codigo !== 200){
             mostrarToast('ERROR', 'Error', 'No se han encontado plazas');
+        } else {
+            dataPlaces = data.plazas;
         }
     })
     .catch(error => console.log(error));
 }
 
-function actualizarComboplazas(comboParaActualizar) {
-    comboParaActualizar.innerHTML = '';
-    for (let i = 0; i < plazas.length; i++) {
-        const plazaActual = plazas[i];
-        comboParaActualizar.innerHTML += `<ion-select-option value="${plazaActual.id}">${plazaActual.nombre}</ion-select-option>`;
+const showPlacesInMap = () => {
+    if (!dataPlaces) {
+        getPlaces()
+    } else {
+
     }
-}
-
-function comboplazasChangeHandler(evt) {
-    const suc = obtenerSucursalPorId(evt.detail.value);
-    const direccion = suc.direccion;
-    // Obtengo latitud y longitud a partir de la dirección de la sucursal.    
-    let url = "https://nominatim.openstreetmap.org/search?format=json&q=" + direccion + ", Montevideo, Uruguay"
-    fetch(API_DOC.getPlaces.url, {
-        method: API_DOC.getPlaces.method,
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify(data)
-    })
-    
-    .then((response) => {
-        return response.json();
-    })
-    .then((data) => {
-        if (data && data.length >= 1) {
-            const datosPlaza = data[0]
-            const posicionPlaza = {
-                latitude: datosPlaza.lat,
-                longitude: datosPlaza.lon
-            };
-            if (markerPlaza) {
-                markerPlaza.remove();
-            }
-            markerPlaza = L.marker([posicionPlaza.latitude, posicionPlaza.longitude], {icon: posicionPlazaIcon}).addTo(map);
-            const distancia = ((map.distance([posicionUsuario.latitude, posicionUsuario.longitude], [posicionPlaza.latitude, posicionPlaza.longitude]))/1000).toFixed(2);
-            map.setView([posicionPlaza.latitude, posicionPlaza.longitude], 18);
-            markerPlaza.bindPopup(`Distancia: ${distancia}km.`).openPopup();
-        } else {
-           console.log( 'No se ha podido localizar la sucursal.');    
-        }
-    })
-    .catch((error) => {
-        console.log(error);;
-    });
-
 }
 
 function obtenerPlazaPorId(id) {
@@ -776,16 +729,46 @@ function obtenerPlazaPorId(id) {
     return suc;
 }
 
-function inicializarMapa() {
+function initMap() {
     if (!map) {
         map = L.map('mapa').setView([posicionUsuario.latitude, posicionUsuario.longitude], 18);
         L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-        markerUsuario = L.marker([posicionUsuario.latitude, posicionUsuario.longitude], {icon: posicionUsuarioIcon}).addTo(map);
+        markerUsuario = L.marker([posicionUsuario.latitude, posicionUsuario.longitude],
+            //  {icon: posicionUsuarioIcon}
+            ).addTo(map);
+    }
+}
+
+function cargarPosicionUsuario() {
+    if (Capacitor.isNativePlatform()) {
+        const loadCurrentPosition = async () => {
+            const resultado = await Capacitor.Plugins.Geolocation.getCurrentPosition({ timeout: 3000 });
+            if (resultado.coords && resultado.coords.latitude) {
+                posicionUsuario = {
+                    latitude: resultado.coords.latitude,
+                    longitude: resultado.coords.longitude
+                }
+            }
+        };
+        loadCurrentPosition();
+    } else {
+        navigator.geolocation.getCurrentPosition(
+        function (pos) {            
+            if (pos && pos.coords && pos.coords.latitude) {
+                posicionUsuario = {
+                    latitude: pos.coords.latitude,
+                    longitude: pos.coords.longitude
+                };
+            }
+        },
+        function (error) {
+            console.log('error', error);
+        });
     }
 }
 /*
 function mostrarPlazas() {
-    cargarYListarPlazas(plazass);
-    inicializarMapa();
+    getPlaces(plazass);
+    initMap();
 }*/
 
