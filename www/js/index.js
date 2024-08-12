@@ -45,11 +45,16 @@ const NAV = document.querySelector("#nav");
 
 const listEventsTodayIon = document.querySelector("#list-events-today");
 const listEventsPastIon = document.querySelector("#list-events-past");
+const plazass = document.querySelector("#pantalla-plazas-combo-plazas");
+const pantallaPlazas = document.querySelector("#pantalla-plazas");
+
 
 let dataDepartments = undefined;
 let dataCities = undefined;
 let dataEvents = undefined;
 let dataCategories = undefined;
+let map = null;
+let loggedUser = undefined;
 
 const BUTTONS = {
     login: document.querySelector("#btn-login"),
@@ -60,6 +65,8 @@ const eventSuscriptions = () => {
     ROUTER.addEventListener("ionRouteDidChange", navigate);
     BUTTONS.login.addEventListener("click", handleLogin);
     document.querySelector('#slcCategory').addEventListener('ionChange', onChangeEventCategory);
+    document.querySelector("#btnMenuCerrarSesion").addEventListener("click",logOut); 
+    plazass.addEventListener("ionChange", comboplazasChangeHandler);
 }
 
 const formatError = (error) => {
@@ -69,7 +76,7 @@ const formatError = (error) => {
     }
 }
 
-let loggedUser = undefined
+
 
 const getHeader = () => {
     return {
@@ -186,12 +193,15 @@ const login = (user, password) => {
             .then(response => {
                 if (!response.ok) {
                     throw new Error('Credenciales incorrectas');
+                }else{
+                    usuarioLogueado = true;
+                    
                 }
                 return response.json();
             })
             .then(data => {
                 loggedUser = data;
-                localStorage.setItem("user", JSON.stringify(data));
+                localStorage.setItem("user", JSON.stringify(data)); 
                 showMenuByUser(loggedUser);
                 showScreen('home')
             })
@@ -204,6 +214,14 @@ const login = (user, password) => {
     }
 
     console.log(user, password);
+}
+
+const handleSignup = () => {
+    const user = document.querySelector('#txtLoginEmail').value
+    const password = document.querySelector('#txtLoginPassword').value
+    const department = document.querySelector('#slcDepartment').value
+    const city = document.querySelector('#slcCity').value
+    signup(user, password,department,city);
 }
 
 const signup = (user, password, departmentId, cityId) => {
@@ -224,13 +242,15 @@ const signup = (user, password, departmentId, cityId) => {
             body: JSON.stringify(data)
         })
             .then(response => {
-                if (!response.ok) {
-                    throw new Error('Error al registrarse', response.status);
-                }
                 return response.json();
             })
             .then(user => {
-                console.log('Usuario registrado:', user);
+                if (user.codigo !=200) {
+                    showAlert({title: "Error al registrar usuario", message: user.mensaje, buttons : ["OK"]});
+                }else{
+                    showMenuByUser(loggedUser);
+                }
+
             })
             .catch(error => {
                 console.error('Error:', error.message);
@@ -528,6 +548,7 @@ const getSession = () => {
     const user = localStorage.getItem('user');
     if (user) {
         loggedUser = JSON.parse(user)
+        getCategories();
         showScreen('home')
     }
 }
@@ -562,8 +583,12 @@ const showScreen = (screenid) => {
             case 'events':
                 showEvents()
                 break;
+
+            case 'places':
+                inicializarMapa();
+            
             default:
-                break;
+                    break;
         }
     }
 }
@@ -650,6 +675,117 @@ const cleanUpToastsAlerts = () => {
 
 eventSuscriptions();
 getSession();
-getCategories();
 showMenuByUser(loggedUser);
+
+function logOut() {
+    closeMenu();
+    localStorage.clear();
+    loggedUser = null;
+    NAV.setRoot("page-login");
+    NAV.popToRoot();
+    showMenuByUser(loggedUser);
+}
+
+/* plazas */
+function cargarYListarPlazas(comboParaActualizar) {
+    fetch(API_DOC.getPlaces.url, {
+        method: API_DOC.getPlaces.method,
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => {
+        console.log(response);
+    })
+    .then(data => {
+        if (data && data.error) {
+            console.log('Error', data.error);
+        } else if (data && data.data && data.data.length > 0) {
+            plazas = [];    
+            for (let i = 0; i < data.data.length; i++) {
+                const plazaActual = data.data[i];
+                plazas.push(Plaza.parse(plazaActual));
+            }
+            actualizarComboPlazas(comboParaActualizar);
+        } else {
+            mostrarToast('ERROR', 'Error', 'No se han encontado plazas');
+        }
+    })
+    .catch(error => console.log(error));
+}
+
+function actualizarComboplazas(comboParaActualizar) {
+    comboParaActualizar.innerHTML = '';
+    for (let i = 0; i < plazas.length; i++) {
+        const plazaActual = plazas[i];
+        comboParaActualizar.innerHTML += `<ion-select-option value="${plazaActual.id}">${plazaActual.nombre}</ion-select-option>`;
+    }
+}
+
+function comboplazasChangeHandler(evt) {
+    const suc = obtenerSucursalPorId(evt.detail.value);
+    const direccion = suc.direccion;
+    // Obtengo latitud y longitud a partir de la dirección de la sucursal.    
+    let url = "https://nominatim.openstreetmap.org/search?format=json&q=" + direccion + ", Montevideo, Uruguay"
+    fetch(API_DOC.getPlaces.url, {
+        method: API_DOC.getPlaces.method,
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+    })
+    
+    .then((response) => {
+        return response.json();
+    })
+    .then((data) => {
+        if (data && data.length >= 1) {
+            const datosPlaza = data[0]
+            const posicionPlaza = {
+                latitude: datosPlaza.lat,
+                longitude: datosPlaza.lon
+            };
+            if (markerPlaza) {
+                markerPlaza.remove();
+            }
+            markerPlaza = L.marker([posicionPlaza.latitude, posicionPlaza.longitude], {icon: posicionPlazaIcon}).addTo(map);
+            const distancia = ((map.distance([posicionUsuario.latitude, posicionUsuario.longitude], [posicionPlaza.latitude, posicionPlaza.longitude]))/1000).toFixed(2);
+            map.setView([posicionPlaza.latitude, posicionPlaza.longitude], 18);
+            markerPlaza.bindPopup(`Distancia: ${distancia}km.`).openPopup();
+        } else {
+           console.log( 'No se ha podido localizar la sucursal.');    
+        }
+    })
+    .catch((error) => {
+        console.log(error);;
+    });
+
+}
+
+function obtenerPlazaPorId(id) {
+    let suc = null;
+    let i = 0;
+    while (!suc && i < plazas.length) {
+        const plazaActual = plazas[i];
+        if (plazaActual.id === id) {
+            suc = plazaActual;
+        }
+        i++;
+    }
+    return suc;
+}
+
+function inicializarMapa() {
+    if (!map) {
+        map = L.map('mapa').setView([posicionUsuario.latitude, posicionUsuario.longitude], 18);
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        markerUsuario = L.marker([posicionUsuario.latitude, posicionUsuario.longitude], {icon: posicionUsuarioIcon}).addTo(map);
+    }
+}
+/*
+function mostrarPlazas() {
+    cargarYListarPlazas(plazass);
+    inicializarMapa();
+}*/
 

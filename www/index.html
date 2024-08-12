@@ -8,6 +8,14 @@
     <script nomodule src="https://cdn.jsdelivr.net/npm/@ionic/core/dist/ionic/ionic.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@ionic/core/css/ionic.bundle.css" />
     <link rel="stylesheet" href="./css/style.css" />
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""></script>
+
     <title>BabyTracker</title>
 </head>
 
@@ -130,7 +138,14 @@
                 </ion-toolbar>
             </ion-header>
             <ion-content>
-              
+                <ion-list>
+                    <ion-item>
+                        <ion-select id="pantalla-plazas-combo-plazas" placeholder="Seleccione plaza">
+                        </ion-select>
+                    </ion-item>
+                </ion-list>
+                <br>
+                <div id="mapa" style="height: 500px;"></div>
             </ion-content>
         </page-login>
 
@@ -196,6 +211,9 @@
                 <br><br>
             </ion-content>
         </page-auth>
+
+
+
         <ion-modal>
             <ion-datetime id="add-event-datetime"></ion-datetime>
         </ion-modal>
