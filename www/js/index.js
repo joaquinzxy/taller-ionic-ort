@@ -588,7 +588,7 @@ const showScreen = (screenid) => {
                 break;
 
             case 'places':
-                initMap();
+                showPlacesInMap();
             
             default:
                     break;
@@ -691,6 +691,9 @@ function logOut() {
 
 /* plazas */
 function getPlaces() {
+    if(!map){
+        initMap();
+    }
     fetch(API_DOC.getPlaces.url, {
         method: API_DOC.getPlaces.method,
         headers: getHeader(),
@@ -701,8 +704,10 @@ function getPlaces() {
     .then(data => {
         if(data.codigo !== 200){
             mostrarToast('ERROR', 'Error', 'No se han encontado plazas');
+            dataPlaces = [];
         } else {
             dataPlaces = data.plazas;
+            showPlacesInMap();
         }
     })
     .catch(error => console.log(error));
@@ -711,8 +716,13 @@ function getPlaces() {
 const showPlacesInMap = () => {
     if (!dataPlaces) {
         getPlaces()
-    } else {
-
+    } else {        
+        for (const place of dataPlaces) {
+            const marker = L.marker([place.latitud, place.longitud],
+                //  {icon: posicionSucursalIcon}
+                ).addTo(map);
+            marker.bindPopup(`<b>${place.accesible === 1 ? 'ACCESIBLE' : 'NO ACCESIBLE'}</b><br>${place.aceptaMascotas === 1 ? 'PET FRIENDLY' : 'NO MASCOTAS'}`);
+        }
     }
 }
 
