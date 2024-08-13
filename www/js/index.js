@@ -47,6 +47,7 @@ const listEventsTodayIon = document.querySelector("#list-events-today");
 const listEventsPastIon = document.querySelector("#list-events-past");
 const plazass = document.querySelector("#pantalla-plazas-combo-plazas");
 const pantallaPlazas = document.querySelector("#pantalla-plazas");
+const registro = document.querySelector("#page-registro");
 
 let posicionUsuario = {
     latitude: -34.903816878014354,
@@ -72,6 +73,7 @@ const eventSuscriptions = () => {
     BUTTONS.login.addEventListener("click", handleLogin);
     document.querySelector('#slcCategory').addEventListener('ionChange', onChangeEventCategory);
     document.querySelector("#btnMenuCerrarSesion").addEventListener("click",logOut); 
+    document.querySelector("#btnLoginIngresar").addEventListener("click",handleSignup); 
 }
 
 const formatError = (error) => {
@@ -220,11 +222,17 @@ const login = (user, password) => {
 }
 
 const handleSignup = () => {
-    const user = document.querySelector('#txtLoginEmail').value
-    const password = document.querySelector('#txtLoginPassword').value
-    const department = document.querySelector('#slcDepartment').value
-    const city = document.querySelector('#slcCity').value
-    signup(user, password,department,city);
+    const user = document.querySelector('#txtLoginEmail2').value
+    const password = document.querySelector('#txtLoginPassword2').value
+    const departmentId = document.querySelector('#slcDepartment').value
+    const cityId = document.querySelector('#slcCity').value
+    if (password.length >= 8 && user.indexOf("@") != -1 )  {
+        signup(user, password, departmentId, cityId);
+        showAlert({title:"Usuario registrado"});
+    }else{
+        showAlert({title:"Error de usuario o contraseña"});
+    }
+    
 }
 
 const signup = (user, password, departmentId, cityId) => {
@@ -233,8 +241,8 @@ const signup = (user, password, departmentId, cityId) => {
         const data = {
             "usuario": user,
             "password": password,
-            "departamento": departmentId,
-            "ciudad": cityId
+            "idDepartamento": departmentId,
+            "idCiudad": cityId
         };
 
         fetch(API_DOC.signup.url, {
@@ -243,15 +251,20 @@ const signup = (user, password, departmentId, cityId) => {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify(data)
+            
         })
             .then(response => {
                 return response.json();
+                
             })
             .then(user => {
                 if (user.codigo !=200) {
                     showAlert({title: "Error al registrar usuario", message: user.mensaje, buttons : ["OK"]});
                 }else{
+                    NAV.push("page-login");
                     showMenuByUser(loggedUser);
+                    closeMenu();
+                    
                 }
 
             })
@@ -262,7 +275,6 @@ const signup = (user, password, departmentId, cityId) => {
     } catch (error) {
         console.log(error);
     }
-
     console.log(user, password, departmentId, cityId);
 }
 
@@ -708,13 +720,6 @@ function getPlaces() {
     .catch(error => console.log(error));
 }
 
-const showPlacesInMap = () => {
-    if (!dataPlaces) {
-        getPlaces()
-    } else {
-
-    }
-}
 
 function obtenerPlazaPorId(id) {
     let suc = null;
@@ -729,15 +734,18 @@ function obtenerPlazaPorId(id) {
     return suc;
 }
 
+
+
 function initMap() {
     if (!map) {
         map = L.map('mapa').setView([posicionUsuario.latitude, posicionUsuario.longitude], 18);
         L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-        markerUsuario = L.marker([posicionUsuario.latitude, posicionUsuario.longitude],
-            //  {icon: posicionUsuarioIcon}
-            ).addTo(map);
+        markerUsuario = L.marker([posicionUsuario.latitude, posicionUsuario.longitude], {icon:UserIcon}).addTo(map);
     }
 }
+
+
+
 
 function cargarPosicionUsuario() {
     if (Capacitor.isNativePlatform()) {
@@ -766,9 +774,62 @@ function cargarPosicionUsuario() {
         });
     }
 }
-/*
+
 function mostrarPlazas() {
     getPlaces(plazass);
     initMap();
-}*/
+}
 
+
+
+
+/*
+function distinguirMapa() {
+    let mascota;
+    let accesible;
+    if (!data.Places) {
+        getPlaces();
+    }else{
+        for (let place of dataPlaces){
+            let marcar = L.marker([place.longitude,place.latitude],{icon: UserIcon}).addTo(map);
+        
+             if (place.accesible) {
+                accesible = "Accessible";
+            }else{
+                accesible = "No accesible";
+            }
+            if (place.aceptaMascotas) {
+               mascota = "Pet friendly";
+            }else{
+                mascota = "Not pet friendly";
+            }
+            marcar.bindPopup(`<b>${accesibilidad}</b><br>${mascota}`,{icon : PlaceIcon}).addTo(map);
+    } 
+    }
+}
+    */
+
+const showPlacesInMap = () => {
+    if (!dataPlaces) {
+        getPlaces()
+    } else {        
+        for (const place of dataPlaces) {
+            const marker = L.marker([place.latitud, place.longitud],
+                //  {icon: posicionSucursalIcon}
+                ).addTo(map);
+            marker.bindPopup(`<b>${place.accesible === 1 ? 'ACCESIBLE' : 'NO ACCESIBLE'}</b><br>${place.aceptaMascotas === 1 ? 'PET FRIENDLY' : 'NO MASCOTAS'}`);
+        }
+    }
+}
+
+
+let UserIcon = L.icon({
+    iconUrl: 'img/localizacion.png',
+    iconSize: [25, 25],
+});
+let PlaceIcon = L.icon({
+    iconUrl: 'img/localizacion(1).png',
+    iconSize: [25, 25],
+});
+
+//revisar el menú al haberse registrado, posible error
