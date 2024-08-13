@@ -61,39 +61,58 @@ let dataEvents = undefined;
 let dataCategories = undefined;
 let dataPlaces = undefined;
 let map = null;
-let loggedUser = undefined;
+let loggedUser = null;
 
 const BUTTONS = {
     login: document.querySelector("#btn-login"),
     addEvent: document.querySelector("#btn-add-event"),
 }
 
-const eventSuscriptions = () => {
-    ROUTER.addEventListener("ionRouteDidChange", navigate);
-    BUTTONS.login.addEventListener("click", handleLogin);
-    document.querySelector('#slcCategory').addEventListener('ionChange', onChangeEventCategory);
-    document.querySelector("#btnMenuCerrarSesion").addEventListener("click",logOut); 
-    document.querySelector("#btnLoginIngresar").addEventListener("click",handleSignup); 
-}
+// API CALLS
 
-const formatError = (error) => {
-    return {
-        status: error.codigo,
-        message: error.mensaje,
-    }
-}
+const getEvents = () => {
 
-const getHeader = () => {
-    return {
-        'Content-Type': 'application/json',
-        'apikey': loggedUser?.apiKey,
-        'iduser': loggedUser?.id
+    listEventsTodayIon.innerHTML = `
+        <ion-item class="spinner-load" lines="none">
+            <ion-spinner color="primary" name="circular"></ion-spinner>
+        </ion-item>`;
+
+    listEventsPastIon.innerHTML = ``;
+
+    try {
+        fetch(API_DOC.getEvents.url + loggedUser.id, {
+            headers: getHeader()
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.codigo === 401) {
+                    showAlert({
+                        title: 'Error de sesión',
+                        message: 'Ocurrion un error de autenticación, por favor, inicia sesión nuevamente',
+                        buttons: ['Aceptar']
+                    })
+
+                    logOut()
+                } else if (data.codigo !== 200) {
+                    showAlert({
+                        title: 'Error al obtener eventos',
+                        message: mensaje,
+                        buttons: ['Aceptar']
+                    })
+                } else {
+                    dataEvents = data.eventos;
+                    showEvents();
+                    showDashboard();
+                }
+            });
+    } catch (error) {
+        showToast({ title: 'Error al obtener eventos', message: error.message, type: 'error' })
     }
 }
 
 const addEvent = (category, detail, datetime) => {
     try {
-        if(!category || !datetime){
+        if (!category || !datetime) {
             showToast({
                 title: 'Error al agregar evento',
                 message: 'Por favor, selecciona una categoría y una fecha',
@@ -112,7 +131,9 @@ const addEvent = (category, detail, datetime) => {
             })
                 .then(response => response.json())
                 .then(data => {
-                    if (data.codigo !== 200) {
+                    if (data.codigo === 401) {
+                        logOut()
+                    } else if (data.codigo !== 200) {
                         showToast({ title: 'Error al agregar evento', message: data.mensaje, type: 'error' })
                     } else {
                         dataEvents = undefined;
@@ -123,38 +144,7 @@ const addEvent = (category, detail, datetime) => {
                 });
         }
     } catch (error) {
-        console.log({ error });
-    }
-}
-
-const getEvents = () => {
-
-    listEventsTodayIon.innerHTML = `
-        <ion-item class="spinner-load" lines="none">
-            <ion-spinner color="primary" name="circular"></ion-spinner>
-        </ion-item>`;
-
-    listEventsPastIon.innerHTML = ``;
-
-    try{
-        fetch(API_DOC.getEvents.url + loggedUser.id, {
-            headers: getHeader()
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.codigo !== 200) {
-                showAlert({
-                    title: 'Error',
-                    message: data.mensaje,
-                    buttons: ['Aceptar']
-                })
-            } else {
-                dataEvents = data.eventos;
-                showEvents();
-            }
-        });
-    } catch (error) {
-        showToast({ title: 'Error al obtener eventos', message: error.message, type: 'error' })
+        showToast({ title: 'Error al agregar evento', message: error.message, type: 'error' })
     }
 }
 
@@ -165,8 +155,15 @@ const deleteEvent = (eventId) => {
     })
         .then(response => response.json())
         .then(data => {
-            if (data.codigo !== 200) {
-                showToast({title: 'Error al eliminar evento',message: data.mensaje,type: 'error' })
+            if (data.codigo === 401) {
+                showAlert({
+                    title: 'Error de sesión',
+                    message: 'Ocurrion un error de autenticación, por favor, inicia sesión nuevamente',
+                    buttons: ['Aceptar']
+                })
+                logOut()
+            } else if (data.codigo !== 200) {
+                showToast({ title: 'Error al eliminar evento', message: data.mensaje, type: 'error' })
             } else {
                 showToast({ title: 'Evento eliminado', message: 'El evento ha sido eliminado correctamente', type: 'success' })
                 dataEvents = undefined;
@@ -175,10 +172,143 @@ const deleteEvent = (eventId) => {
         });
 }
 
-const handleLogin = () => {
-    const user = document.querySelector('#txtLoginEmail').value
-    const password = document.querySelector('#txtLoginPassword').value
-    login(user, password)
+const getDepartments = () => {
+    try {
+        fetch(API_DOC.getDepartments.url, {
+            method: API_DOC.getDepartments.method,
+            headers: {
+                "Content-Type": "application/json"
+            }
+        })
+            .then(response => {
+                return response.json();
+            })
+            .then(data => {
+                if (data.codigo === 401) {
+                    showAlert({
+                        title: 'Error de sesión',
+                        message: 'Ocurrion un error de autenticación, por favor, inicia sesión nuevamente',
+                        buttons: ['Aceptar']
+                    })
+                    logOut()
+                } else if (data.codigo !== 200) {
+                    showAlert({
+                        title: 'Error al obtener los departamentos',
+                        message: data.mensaje,
+                        buttons: ['Aceptar']
+                    })
+                } else {
+                    dataDepartments = data.departamentos
+                    showDepartments();
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error.message);
+            });
+    } catch (error) {
+        showToast({ title: 'Error al obtener departamentos', message: error.message, type: 'error' })
+    }
+}
+
+const getCities = (cityId) => {
+    try {
+        fetch(API_DOC.getCities.url + cityId, {
+            method: API_DOC.getCities.method,
+            headers: {
+                "Content-Type": "application/json"
+            },
+        })
+            .then(response => {
+                return response.json();
+            })
+            .then(cities => {
+                if (cities.codigo === 401) {
+                    showAlert({
+                        title: 'Error de sesión',
+                        message: 'Ocurrion un error de autenticación, por favor, inicia sesión nuevamente',
+                        buttons: ['Aceptar']
+                    })
+                    logOut()
+                } else if (cities.codig !== 200) {
+                    showAlert({
+                        title: 'Error al obtener las ciudades',
+                        message: cities.mensaje,
+                        buttons: ['Aceptar']
+                    })
+                }
+                else {
+                    dataCities = cities.ciudades;
+                    showCities()
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error.message);
+            });
+    } catch (error) {
+        showToast({ title: 'Error al obtener ciudades', message: error.message, type: 'error' })
+    }
+}
+
+const getPlaces = () => {
+    fetch(API_DOC.getPlaces.url, {
+        method: API_DOC.getPlaces.method,
+        headers: getHeader(),
+    })
+        .then(response => {
+            return response.json();
+        })
+        .then(data => {
+            if (data.codigo === 401) {
+                showAlert({
+                    title: 'Error de sesión',
+                    message: 'Ocurrion un error de autenticación, por favor, inicia sesión nuevamente',
+                    buttons: ['Aceptar']
+                })
+                logOut()
+            } else if (data.codigo !== 200) {
+                mostrarToast('ERROR', 'Error', 'No se han encontado plazas');
+            } else {
+                dataPlaces = data.plazas;
+            }
+        })
+        .catch(error => {
+            showToast({ title: 'Error al obtener plazas', message: error.message, type: 'error' })
+        });
+}
+
+const getCategories = () => {
+    try {
+        fetch(API_DOC.getCategories.url, {
+            method: API_DOC.getCategories.method,
+            headers: getHeader()
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.codigo === 401) {
+                    showAlert({
+                        title: 'Error de sesión',
+                        message: 'Ocurrion un error de autenticación, por favor, inicia sesión nuevamente',
+                        buttons: ['Aceptar']
+                    })
+
+                    logOut()
+                } else if (data.codigo !== 200) {
+                    showAlert({
+                        title: 'Error al obtener las categorías',
+                        message: data.mensaje,
+                        buttons: ['Aceptar']
+                    })
+                } else {
+                    dataCategories = data.categorias
+                    showCategories();
+                }
+            })
+            .catch(error => {
+                showToast({ title: 'Error al obtener categorías', message: error.message, type: 'error' })
+            });
+    } catch (error) {
+        showToast({ title: 'Error al obtener categorías', message: error.message, type: 'error' })
+    }
 }
 
 const login = (user, password) => {
@@ -198,15 +328,14 @@ const login = (user, password) => {
             .then(response => {
                 if (!response.ok) {
                     throw new Error('Credenciales incorrectas');
-                }else{
+                } else {
                     usuarioLogueado = true;
-                    
                 }
                 return response.json();
             })
             .then(data => {
                 loggedUser = data;
-                localStorage.setItem("user", JSON.stringify(data)); 
+                localStorage.setItem("user", JSON.stringify(data));
                 showMenuByUser(loggedUser);
                 showScreen('home')
             })
@@ -215,24 +344,8 @@ const login = (user, password) => {
             });
 
     } catch (error) {
-        console.log(error);
+        showToast({ title: 'Error al iniciar sesión', message: error.message, type: 'error' })
     }
-
-    console.log(user, password);
-}
-
-const handleSignup = () => {
-    const user = document.querySelector('#txtLoginEmail2').value
-    const password = document.querySelector('#txtLoginPassword2').value
-    const departmentId = document.querySelector('#slcDepartment').value
-    const cityId = document.querySelector('#slcCity').value
-    if (password.length >= 8 && user.indexOf("@") != -1 )  {
-        signup(user, password, departmentId, cityId);
-        showAlert({title:"Usuario registrado"});
-    }else{
-        showAlert({title:"Error de usuario o contraseña"});
-    }
-    
 }
 
 const signup = (user, password, departmentId, cityId) => {
@@ -251,20 +364,20 @@ const signup = (user, password, departmentId, cityId) => {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify(data)
-            
+
         })
             .then(response => {
                 return response.json();
-                
+
             })
             .then(user => {
-                if (user.codigo !=200) {
-                    showAlert({title: "Error al registrar usuario", message: user.mensaje, buttons : ["OK"]});
-                }else{
+                if (user.codigo != 200) {
+                    showAlert({ title: "Error al registrar usuario", message: user.mensaje, buttons: ["OK"] });
+                } else {
                     NAV.push("page-login");
                     showMenuByUser(loggedUser);
                     closeMenu();
-                    
+
                 }
 
             })
@@ -273,10 +386,328 @@ const signup = (user, password, departmentId, cityId) => {
             });
 
     } catch (error) {
-        console.log(error);
+        showToast({ title: 'Error al registrar usuario', message: error.message, type: 'error' })
     }
-    console.log(user, password, departmentId, cityId);
 }
+
+// END API CALLS
+
+// NAVIGATION 
+
+const SCREENS = {
+    HOME: document.querySelector('#page-home'),
+    EVENTS: document.querySelector('#page-events'),
+    DASHBOARD: document.querySelector('#page-dashboard'),
+    PLACES: document.querySelector('#page-places'),
+    LOGIN: document.querySelector('#page-login'),
+    SIGNUP: document.querySelector('#page-auth'),
+}
+
+const hideScreens = () => {
+    SCREENS.HOME.style.display = 'none'
+    SCREENS.EVENTS.style.display = 'none'
+    SCREENS.LOGIN.style.display = 'none'
+    SCREENS.SIGNUP.style.display = 'none'
+    SCREENS.DASHBOARD.style.display = 'none'
+    SCREENS.PLACES.style.display = 'none'
+}
+
+const showScreen = (screenid) => {
+    screenid = screenid.replace('/', '');
+    if (SCREENS[screenid.toLocaleUpperCase()]) {
+        hideScreens();
+        SCREENS[screenid.toLocaleUpperCase()].style.display = 'block'
+        switch (screenid) {
+            case 'signup':
+                showDepartments()
+                break;
+            case 'events':
+                showEvents()
+                break;
+
+            case 'places':
+                initMap();
+
+            case 'dashboard':
+                showDashboard()
+
+            default:
+                break;
+        }
+    }
+}
+
+const closeMenu = () => {
+    MENU.close();
+}
+
+const showMenuByUser = (loggedUser) => {
+    document.querySelector('#menu-options-guest').style.display = 'none';
+    document.querySelector('#menu-options-logued').style.display = 'none';
+    if (loggedUser) {
+        document.querySelector('#menu-options-logued').style.display = 'block';
+    } else {
+        document.querySelector('#menu-options-guest').style.display = 'block';
+    }
+}
+
+const navigate = (evt) => {
+
+    const guestPages = ['login', 'signup', 'home'];
+    const privatePages = ['events', 'dashboard', 'places', 'home'];
+
+    const target = evt.detail.to === '/' ? 'home' : evt.detail.to;
+
+    hideScreens();
+    if (!loggedUser && privatePages.includes(target.replace('/', ''))) {
+        showScreen('login');
+    } else if (loggedUser && guestPages.includes(target.replace('/', ''))) {
+        showScreen('events');
+    } else {
+        showScreen(target);
+    }
+
+}
+
+// END NAVIGATION
+
+// UTILS
+
+const getHeader = () => {
+    return {
+        'Content-Type': 'application/json',
+        'apikey': loggedUser?.apiKey,
+        'iduser': loggedUser?.id
+    }
+}
+
+const getSession = () => {
+    const user = localStorage.getItem('user');
+    if (user) {
+        loggedUser = JSON.parse(user)
+        getCategories();
+        showScreen('home')
+    }
+}
+
+const getSinceTime = (date) => {
+    const today = new Date();
+    const eventDate = new Date(date);
+    const diff = today - eventDate;
+    const diffSeconds = diff / 1000;
+    const diffMinutes = diffSeconds / 60;
+    const diffHours = diffMinutes / 60;
+    const diffDays = diffHours / 24;
+    const diffMonths = diffDays / 30;
+
+    if (diffMonths > 1) {
+        return `${Math.floor(diffMonths)} ${Math.floor(diffMonths) > 1 ? 'meses' : 'mes'}`
+    } else if (diffDays > 1) {
+        return `${Math.floor(diffDays)} ${Math.floor(diffDays) > 1 ? 'días' : 'día'}`
+    } else if (diffHours > 1) {
+        return `${Math.floor(diffHours)} ${Math.floor(diffHours) > 1 ? 'horas' : 'hora'}`
+    } else if (diffMinutes > 1) {
+        return `${Math.floor(diffMinutes)} ${Math.floor(diffMinutes) > 1 ? 'minutos' : 'minuto'}`
+    } else {
+        return `${Math.floor(diffSeconds)} ${Math.floor(diffSeconds) > 1 ? 'segundos' : 'segundo'}`
+    }
+}
+
+const showToast = ({ title, message, type, duration }) => {
+    const toast = document.createElement('ion-toast');
+    toast.color = type === 'error' ? 'danger' : 'tertiary';
+    toast.message = message || '';
+    toast.header = title.toLocaleUpperCase() || '';
+    toast.duration = duration || 2000;
+
+    document.body.appendChild(toast);
+    toast.present();
+}
+
+const showAlert = ({ title, message, buttons }) => {
+    const alert = document.createElement('ion-alert');
+    alert.header = title;
+    alert.message = message;
+    alert.buttons = buttons;
+
+    document.body.appendChild(alert);
+    alert.present();
+}
+
+const cleanUpToastsAlerts = () => {
+    const toasts = document.querySelectorAll('ion-toast');
+    toasts.forEach(toast => {
+        if (document.body.contains(toast)) {
+            document.body.removeChild(toast);
+        }
+    });
+
+    const alerts = document.querySelectorAll('ion-alert');
+    alerts.forEach(alert => {
+        if (document.body.contains(alert)) {
+            document.body.removeChild(alert);
+        }
+    });
+}
+
+const processEvents = () => {
+
+    const today = new Date();
+    today.setHours(today.getHours() - 3);
+    const todayStr = today.toISOString().split('T')[0];
+
+    const sortedEventsByFecha = dataEvents.sort((a, b) => {
+        return new Date(b.fecha) - new Date(a.fecha)
+    })
+
+    const events = sortedEventsByFecha.map(event => {
+        return {
+            ...event,
+            moment: event.fecha.split(' ')[0] === todayStr ? 'today' : 'past'
+        }
+    });
+
+    return events
+}
+
+const getCategoryImageId = (categoryId) => {
+    if (!dataCategories) {
+        getCategories();
+        showEvents();
+    } else {
+        return dataCategories.find(category => category.id === categoryId).imagen
+    }
+}
+
+const generateDashboardData = () => {
+    const events = processEvents();
+    const todayEvents = events.filter(event => event.moment === 'today');
+    const idDaipers = dataCategories.find(category => category.tipo === 'Pañal').id;
+    const idFeed = dataCategories.find(category => category.tipo === 'Biberón').id;
+
+    const daipers = todayEvents.filter(event => event.idCategoria === idDaipers);
+    const feed = todayEvents.filter(event => event.idCategoria === idFeed);
+
+    return [{
+        total: daipers.length,
+        label: daipers.length === 1 ? 'Pañal' : 'Pañales',
+        icon: '🩲',
+        since: daipers.length > 0 ? getSinceTime(daipers[0].fecha) : 'Sin eventos'
+    }, {
+        total: feed.length,
+        label: feed.length === 1 ? 'Biberón' : 'Biberones',
+        icon: '🍼',
+        since: feed.length > 0 ? getSinceTime(feed[0].fecha) : 'Sin eventos',
+    }]
+}
+
+const logOut = () => {
+    closeMenu();
+    localStorage.clear();
+    loggedUser = null;
+    NAV.setRoot("page-login");
+    NAV.popToRoot();
+    showMenuByUser(loggedUser);
+}
+
+// END UTILS
+
+// TRIGGERS AND EVENTS
+
+const onDeleteEvent = (eventId) => {
+    showAlert({
+        title: 'Eliminar evento',
+        message: '¿Estás seguro de eliminar el evento?',
+        buttons: [
+            {
+                text: 'Cancelar',
+                role: 'cancel',
+                cssClass: 'secondary'
+            },
+            {
+                text: 'Eliminar',
+                handler: () => {
+                    deleteEvent(eventId)
+                }
+            }
+        ]
+    })
+}
+
+const onOpenModalAddEvent = () => {
+    showCategories();
+
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
+    const seconds = date.getSeconds();
+
+    const dateStr = `${year}-${month < 10 ? '0' + month : month}-${day < 10 ? '0' + day : day}`;
+    const timeStr = `${hours < 10 ? '0' + hours : hours}:${minutes < 10 ? '0' + minutes : minutes}:${seconds < 10 ? '0' + seconds : seconds}`;
+
+    document.querySelector('#add-event-datetime').value = dateStr + 'T' + timeStr;
+    document.querySelector('#add-event-datetime').max = dateStr + 'T' + timeStr;
+    document.querySelector('#txtEventDetail').value = '';
+    document.querySelector('#slcCategory').value = '';
+}
+
+const onChangeEventCategory = (event) => {
+    const category = event.detail.value;
+    const btnConfirmEvent = document.querySelector('#btn-confirm-event');
+    if (category) {
+        btnConfirmEvent.removeAttribute('disabled');
+    } else {
+        btnConfirmEvent.setAttribute('disabled', true);
+    }
+}
+
+const handleLogin = () => {
+    const user = document.querySelector('#txtLoginEmail').value
+    const password = document.querySelector('#txtLoginPassword').value
+    login(user, password)
+}
+
+const handleSignup = () => {
+    const user = document.querySelector('#txtLoginEmail2').value
+    const password = document.querySelector('#txtLoginPassword2').value
+    const departmentId = document.querySelector('#slcDepartment').value
+    const cityId = document.querySelector('#slcCity').value
+    if (password.length >= 8 && user.indexOf("@") != -1) {
+        signup(user, password, departmentId, cityId);
+        showAlert({ title: "Usuario registrado" });
+    } else {
+        showAlert({ title: "Error de usuario o contraseña" });
+    }
+
+}
+
+const onConfirmEvent = () => {
+    const category = document.querySelector('#slcCategory').value;
+    const detail = document.querySelector('#txtEventDetail').value;
+    const datetime = document.querySelector('#add-event-datetime').value;
+    addEvent(category, detail, datetime);
+    closeModalAddEvent();
+}
+
+const eventSuscriptions = () => {
+    ROUTER.addEventListener("ionRouteDidChange", navigate);
+    BUTTONS.login.addEventListener("click", handleLogin);
+    document.querySelector('#slcCategory').addEventListener('ionChange', onChangeEventCategory);
+    document.querySelector("#btnMenuCerrarSesion").addEventListener("click", logOut);
+    document.querySelector("#btnLoginIngresar").addEventListener("click", handleSignup);
+}
+
+const closeModalAddEvent = () => {
+    const modal = document.querySelector('#add-event-modal-ion');
+    return modal.dismiss();
+}
+
+// END TRIGGERS AND EVENTS
+
+// DATA DISPLAY
 
 const showDepartments = () => {
     if (!dataDepartments) {
@@ -293,58 +724,6 @@ const showDepartments = () => {
             dataCities = undefined;
             getCities(event.detail.value)
         })
-    }
-}
-
-const getDepartments = () => {
-    try {
-        fetch(API_DOC.getDepartments.url, {
-            method: API_DOC.getDepartments.method,
-            headers: {
-                "Content-Type": "application/json"
-            }
-        })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Departamento no encontrado');
-                }
-                return response.json();
-            })
-            .then(data => {
-                dataDepartments = data.departamentos
-                showDepartments();
-            })
-            .catch(error => {
-                console.error('Error:', error.message);
-            });
-    } catch (error) {
-        console.log(error);
-    }
-}
-
-const getCities = (cityId) => {
-    try {
-        fetch(API_DOC.getCities.url + cityId, {
-            method: API_DOC.getCities.method,
-            headers: {
-                "Content-Type": "application/json"
-            },
-        })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Ciudad no encontrada');
-                }
-                return response.json();
-            })
-            .then(cities => {
-                dataCities = cities.ciudades;
-                showCities()
-            })
-            .catch(error => {
-                console.error('Error:', error.message);
-            });
-    } catch (error) {
-        console.log(error);
     }
 }
 
@@ -413,97 +792,6 @@ const showEvents = () => {
     }
 }
 
-const getSinceTime = (date) => {
-    const today = new Date();
-    const eventDate = new Date(date);
-    const diff = today - eventDate;
-    const diffSeconds = diff / 1000;
-    const diffMinutes = diffSeconds / 60;
-    const diffHours = diffMinutes / 60;
-    const diffDays = diffHours / 24;
-    const diffMonths = diffDays / 30;
-
-    if (diffMonths > 1) {
-        return `${Math.floor(diffMonths)} ${Math.floor(diffMonths) > 1 ? 'meses' : 'mes'}`
-    } else if (diffDays > 1) {
-        return `${Math.floor(diffDays)} ${Math.floor(diffDays) > 1 ? 'días' : 'día'}`
-    } else if (diffHours > 1) {
-        return `${Math.floor(diffHours)} ${Math.floor(diffHours) > 1 ? 'horas' : 'hora'}`
-    } else if (diffMinutes > 1) {
-        return `${Math.floor(diffMinutes)} ${Math.floor(diffMinutes) > 1 ? 'minutos' : 'minuto'}`
-    } else {
-        return `${Math.floor(diffSeconds)} ${Math.floor(diffSeconds) > 1 ? 'segundos' : 'segundo'}`
-    }
-}
-
-const processEvents = () => {
-
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
-    const sortedEventsByFecha = dataEvents.sort((a, b) => {
-        return new Date(b.fecha) - new Date(a.fecha)
-    })
-    const events = sortedEventsByFecha.map(event => {
-        return {
-            ...event,
-            moment: event.fecha.split(' ')[0] === todayStr ? 'today' : 'past'
-        }
-    });
-
-    return events
-}
-
-const onDeleteEvent = (eventId) => {
-    showAlert({
-        title: 'Eliminar evento',
-        message: '¿Estás seguro de eliminar el evento?',
-        buttons: [
-            {
-                text: 'Cancelar',
-                role: 'cancel',
-                cssClass: 'secondary'
-            },
-            {
-                text: 'Eliminar',
-                handler: () => {
-                    deleteEvent(eventId)
-                }
-            }
-        ]
-    })
-}
-
-const getCategoryImageId = (categoryId) => {
-    return dataCategories.find(category => category.id === categoryId).imagen
-}
-
-const getCategories = () => {
-    try {
-        fetch(API_DOC.getCategories.url, {
-            method: API_DOC.getCategories.method,
-            headers: getHeader()
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.codigo !== 200) {
-                    showAlert({
-                        title: 'Error al obtener las categorías',
-                        message: data.mensaje,
-                        buttons: ['Aceptar']
-                    })
-                } else {
-                    dataCategories = data.categorias
-                    showCategories();
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error.message);
-            });
-    } catch (error) {
-        console.log(error);
-    }
-}
-
 const showCategories = () => {
     if (!dataCategories) {
         getCategories()
@@ -518,236 +806,43 @@ const showCategories = () => {
     }
 }
 
-const onOpenModalAddEvent = () => {
-    showCategories();
-
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
-    const hours = date.getHours();
-    const minutes = date.getMinutes();
-    const seconds = date.getSeconds();
-
-    const dateStr = `${year}-${month < 10 ? '0' + month : month}-${day < 10 ? '0' + day : day}`;
-    const timeStr = `${hours < 10 ? '0' + hours : hours}:${minutes < 10 ? '0' + minutes : minutes}:${seconds < 10 ? '0' + seconds : seconds}`;
-
-    document.querySelector('#add-event-datetime').value = dateStr + 'T' + timeStr;
-    document.querySelector('#add-event-datetime').max = dateStr + 'T' + timeStr;
-}
-
-const onChangeEventCategory = (event) => {
-    const category = event.detail.value;
-    const btnConfirmEvent = document.querySelector('#btn-confirm-event');
-    if (category) {
-        btnConfirmEvent.removeAttribute('disabled');
+const showDashboard = () => {
+    if (!dataEvents) {
+        getEvents();
     } else {
-        btnConfirmEvent.setAttribute('disabled', true);
-    }
-}
-
-const onConfirmEvent = () => {
-    const category = document.querySelector('#slcCategory').value;
-    const detail = document.querySelector('#txtEventDetail').value;
-    const datetime = document.querySelector('#add-event-datetime').value;
-    addEvent(category, detail, datetime);
-    closeModalAddEvent();
-}
-
-const closeModalAddEvent = () => {
-    const modal = document.querySelector('#add-event-modal-ion');
-    return modal.dismiss();
-}
-
-const getSession = () => {
-    const user = localStorage.getItem('user');
-    if (user) {
-        loggedUser = JSON.parse(user)
-        getCategories();
-        showScreen('home')
-    }
-}
-
-const SCREENS = {
-    HOME: document.querySelector('#page-home'),
-    EVENTS: document.querySelector('#page-events'),
-    DASHBOARD: document.querySelector('#page-dashboard'),
-    PLACES: document.querySelector('#page-places'),
-    LOGIN: document.querySelector('#page-login'),
-    SIGNUP: document.querySelector('#page-auth'),
-}
-
-const hideScreens = () => {
-    SCREENS.HOME.style.display = 'none'
-    SCREENS.EVENTS.style.display = 'none'
-    SCREENS.LOGIN.style.display = 'none'
-    SCREENS.SIGNUP.style.display = 'none'
-    SCREENS.DASHBOARD.style.display = 'none'
-    SCREENS.PLACES.style.display = 'none'
-}
-
-const showScreen = (screenid) => {
-    screenid = screenid.replace('/', '');
-    if (SCREENS[screenid.toLocaleUpperCase()]) {
-        hideScreens();
-        SCREENS[screenid.toLocaleUpperCase()].style.display = 'block'
-        switch (screenid) {
-            case 'signup':
-                showDepartments()
-                break;
-            case 'events':
-                showEvents()
-                break;
-
-            case 'places':
-                initMap();
-            
-            default:
-                    break;
+        const data = generateDashboardData();
+        const dashboardContent = document.querySelector('#dashboard-content');
+        let dashboardContentHTML = '';
+        for (const item of data) {
+            dashboardContentHTML += `
+            <ion-item>
+                <ion-label>
+                    <h2 style="font-size: 2rem"><strong style="font-size: 3rem">${item.icon} ${item.total}</strong> ${item.label}</h2>
+                    <p>${item.since}</p>
+                </ion-label>
+            </ion-item>`
         }
+        dashboardContent.innerHTML = dashboardContentHTML;
     }
 }
 
-const closeMenu = () => {
-    MENU.close();
-}
-
-const generateDashboardData = () => {
-    const events = processEvents();
-    const todayEvents = events.filter(event => event.moment === 'today');
-    const idDaipers = dataCategories.find(category => category.tipo === 'Pañal').id;
-    const idFeed = dataCategories.find(category => category.tipo === 'Biberón').id;
-
-    const daipers = todayEvents.filter(event => event.idCategoria === idDaipers);
-    const feed = todayEvents.filter(event => event.idCategoria === idFeed);
-
-    return {
-        daipers: {
-            total: daipers.length,
-            since: daipers.length > 0 ? getSinceTime(daipers[0].fecha) : 'Sin eventos',
-        },
-        feed: {
-            total: feed.length,
-            since: feed.length > 0 ? getSinceTime(feed[0].fecha) : 'Sin eventos',
-        }
-    }
-}
-
-const showMenuByUser = (loggedUser) => {
-    console.log(loggedUser);
-    
-    document.querySelector('#menu-options-guest').style.display = 'none';
-    document.querySelector('#menu-options-logued').style.display = 'none';
-    if(loggedUser){
-        document.querySelector('#menu-options-logued').style.display = 'block';
-    } else {
-        document.querySelector('#menu-options-guest').style.display = 'block';
-    }
-}
-
-const navigate = (evt) => {
-    const target = evt.detail.to === '/' ? 'home' : evt.detail.to;
-    hideScreens();
-    showScreen(target);
-}
-
-const showToast = ({ title, message, type, duration }) => {
-    const toast = document.createElement('ion-toast');
-    toast.color = type === 'error' ? 'danger' : 'tertiary';
-    toast.message = message || '';
-    toast.header = title.toLocaleUpperCase() || '';
-    toast.duration = duration || 2000;
-
-    document.body.appendChild(toast);
-    toast.present();
-}
-
-const showAlert = ({ title, message, buttons }) => {
-    const alert = document.createElement('ion-alert');
-    alert.header = title;
-    alert.message = message;
-    alert.buttons = buttons;
-
-    document.body.appendChild(alert);
-    alert.present();
-}
-
-const cleanUpToastsAlerts = () => {
-    const toasts = document.querySelectorAll('ion-toast');
-    toasts.forEach(toast => {
-        if (document.body.contains(toast)) {
-            document.body.removeChild(toast);
-        }
-    });
-
-    const alerts = document.querySelectorAll('ion-alert');
-    alerts.forEach(alert => {
-        if (document.body.contains(alert)) {
-            document.body.removeChild(alert);
-        }
-    });
-}
+// END DATA DISPLAY
 
 eventSuscriptions();
 getSession();
 showMenuByUser(loggedUser);
 
-function logOut() {
-    closeMenu();
-    localStorage.clear();
-    loggedUser = null;
-    NAV.setRoot("page-login");
-    NAV.popToRoot();
-    showMenuByUser(loggedUser);
-}
-
 /* plazas */
-function getPlaces() {
-    fetch(API_DOC.getPlaces.url, {
-        method: API_DOC.getPlaces.method,
-        headers: getHeader(),
-    })
-    .then(response => {
-        return response.json();
-    })
-    .then(data => {
-        if(data.codigo !== 200){
-            mostrarToast('ERROR', 'Error', 'No se han encontado plazas');
-        } else {
-            dataPlaces = data.plazas;
-        }
-    })
-    .catch(error => console.log(error));
-}
 
-
-function obtenerPlazaPorId(id) {
-    let suc = null;
-    let i = 0;
-    while (!suc && i < plazas.length) {
-        const plazaActual = plazas[i];
-        if (plazaActual.id === id) {
-            suc = plazaActual;
-        }
-        i++;
-    }
-    return suc;
-}
-
-
-
-function initMap() {
+const initMap = () => {
     if (!map) {
         map = L.map('mapa').setView([posicionUsuario.latitude, posicionUsuario.longitude], 18);
         L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-        markerUsuario = L.marker([posicionUsuario.latitude, posicionUsuario.longitude], {icon:UserIcon}).addTo(map);
+        markerUsuario = L.marker([posicionUsuario.latitude, posicionUsuario.longitude], { icon: UserIcon }).addTo(map);
     }
 }
 
-
-
-
-function cargarPosicionUsuario() {
+const cargarPosicionUsuario = () => {
     if (Capacitor.isNativePlatform()) {
         const loadCurrentPosition = async () => {
             const resultado = await Capacitor.Plugins.Geolocation.getCurrentPosition({ timeout: 3000 });
@@ -761,75 +856,16 @@ function cargarPosicionUsuario() {
         loadCurrentPosition();
     } else {
         navigator.geolocation.getCurrentPosition(
-        function (pos) {            
-            if (pos && pos.coords && pos.coords.latitude) {
-                posicionUsuario = {
-                    latitude: pos.coords.latitude,
-                    longitude: pos.coords.longitude
-                };
-            }
-        },
-        function (error) {
-            console.log('error', error);
-        });
+            function (pos) {
+                if (pos && pos.coords && pos.coords.latitude) {
+                    posicionUsuario = {
+                        latitude: pos.coords.latitude,
+                        longitude: pos.coords.longitude
+                    };
+                }
+            },
+            function (error) {
+                console.log('error', error);
+            });
     }
 }
-
-function mostrarPlazas() {
-    getPlaces(plazass);
-    initMap();
-}
-
-
-
-
-/*
-function distinguirMapa() {
-    let mascota;
-    let accesible;
-    if (!data.Places) {
-        getPlaces();
-    }else{
-        for (let place of dataPlaces){
-            let marcar = L.marker([place.longitude,place.latitude],{icon: UserIcon}).addTo(map);
-        
-             if (place.accesible) {
-                accesible = "Accessible";
-            }else{
-                accesible = "No accesible";
-            }
-            if (place.aceptaMascotas) {
-               mascota = "Pet friendly";
-            }else{
-                mascota = "Not pet friendly";
-            }
-            marcar.bindPopup(`<b>${accesibilidad}</b><br>${mascota}`,{icon : PlaceIcon}).addTo(map);
-    } 
-    }
-}
-    */
-
-const showPlacesInMap = () => {
-    if (!dataPlaces) {
-        getPlaces()
-    } else {        
-        for (const place of dataPlaces) {
-            const marker = L.marker([place.latitud, place.longitud],
-                //  {icon: posicionSucursalIcon}
-                ).addTo(map);
-            marker.bindPopup(`<b>${place.accesible === 1 ? 'ACCESIBLE' : 'NO ACCESIBLE'}</b><br>${place.aceptaMascotas === 1 ? 'PET FRIENDLY' : 'NO MASCOTAS'}`);
-        }
-    }
-}
-
-
-let UserIcon = L.icon({
-    iconUrl: 'img/localizacion.png',
-    iconSize: [25, 25],
-});
-let PlaceIcon = L.icon({
-    iconUrl: 'img/localizacion(1).png',
-    iconSize: [25, 25],
-});
-
-//revisar el menú al haberse registrado, posible error

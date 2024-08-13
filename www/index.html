@@ -102,9 +102,6 @@
                             <ion-label>Fecha/hora</ion-label>
                             <ion-datetime-button datetime="add-event-datetime"></ion-datetime-button>
                         </ion-item>
-
-                        <!-- add an 'Confirmar' and 'Cancelar' button -->
-
                         <div class="btn-container-event">
                             <ion-button id="btn-cancel-event" color="light" onclick="closeModalAddEvent()">Cancelar</ion-button>
                             <ion-button id="btn-confirm-event" color="primary" onclick="onConfirmEvent()" disabled>Confirmar</ion-button>
@@ -120,10 +117,10 @@
                     <ion-buttons slot="start">
                         <ion-menu-button></ion-menu-button>
                     </ion-buttons>
-                    <ion-title>Dashboard</ion-title>
+                    <ion-title>Informes</ion-title>
                 </ion-toolbar>
             </ion-header>
-            <ion-content>
+            <ion-content id="dashboard-content">
               
             </ion-content>
         </page-login>
@@ -154,7 +151,7 @@
             <ion-content>
                 <ion-list>
                     <ion-item>
-                        <ion-input id="txtLoginEmail" type="email" label="Email" label-placement="floating"></ion-input>
+                        <ion-input id="txtLoginEmail" type="email" label="Usuario" label-placement="floating"></ion-input>
                     </ion-item>
                     <br>
                     <ion-item>
@@ -180,7 +177,7 @@
             <ion-content>
                 <ion-list>
                     <ion-item>
-                        <ion-input id="txtLoginEmail2" type="email" label="Email" label-placement="floating"></ion-input>
+                        <ion-input id="txtLoginEmail2" type="email" label="Usuario" label-placement="floating"></ion-input>
                     </ion-item>
                     <br>
                     <ion-item>
@@ -212,6 +209,7 @@
         </ion-modal>
     </ion-app>
     <script src="./js/capacitor.js"></script>
+    <script src="./js/clases.js"></script>
     <script src="./js/index.js" defer></script>
 </body>
 
